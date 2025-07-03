@@ -29,7 +29,7 @@ def webhook():
         return "Invalid side", 400
 
     try:
-        # Mevcut pozisyonu kapat
+        # Mevcut pozisyonu kontrol et ve kapat
         positions = client.futures_position_information(symbol=SYMBOL)
         position_amt = float(positions[0]["positionAmt"])
 
@@ -52,6 +52,9 @@ def webhook():
         qty = calculate_quantity()
         mark_price = float(client.futures_mark_price(symbol=SYMBOL)['markPrice'])
 
+        if qty <= 0 or mark_price <= 0:
+            return "Quantity or price invalid", 400
+
         if side == "buy":
             client.futures_create_order(
                 symbol=SYMBOL,
@@ -59,15 +62,19 @@ def webhook():
                 type=ORDER_TYPE_MARKET,
                 quantity=qty
             )
-            client.futures_create_order(
-                symbol=SYMBOL,
-                side=SIDE_SELL,
-                type=ORDER_TYPE_TRAILING_STOP_MARKET,
-                quantity=qty,
-                callbackRate=TRAILING_PERCENT,
-                activationPrice=str(round(mark_price * 1.01, 2)),
-                reduceOnly=True
-            )
+            try:
+                client.futures_create_order(
+                    symbol=SYMBOL,
+                    side=SIDE_SELL,
+                    type=ORDER_TYPE_TRAILING_STOP_MARKET,
+                    quantity=qty,
+                    callbackRate=TRAILING_PERCENT,
+                    activationPrice=str(round(mark_price * 1.01, 2)),
+                    reduceOnly=True
+                )
+            except Exception as e:
+                print(f"Trailing stop error (buy): {e}")
+
         elif side == "sell":
             client.futures_create_order(
                 symbol=SYMBOL,
@@ -75,24 +82,27 @@ def webhook():
                 type=ORDER_TYPE_MARKET,
                 quantity=qty
             )
-            client.futures_create_order(
-                symbol=SYMBOL,
-                side=SIDE_BUY,
-                type=ORDER_TYPE_TRAILING_STOP_MARKET,
-                quantity=qty,
-                callbackRate=TRAILING_PERCENT,
-                activationPrice=str(round(mark_price * 0.99, 2)),
-                reduceOnly=True
-            )
+            try:
+                client.futures_create_order(
+                    symbol=SYMBOL,
+                    side=SIDE_BUY,
+                    type=ORDER_TYPE_TRAILING_STOP_MARKET,
+                    quantity=qty,
+                    callbackRate=TRAILING_PERCENT,
+                    activationPrice=str(round(mark_price * 0.99, 2)),
+                    reduceOnly=True
+                )
+            except Exception as e:
+                print(f"Trailing stop error (sell): {e}")
 
         return f"{side.capitalize()} order executed with trailing stop", 200
 
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return f"General Error: {str(e)}", 500
 
 @app.route("/")
 def home():
-    return "NRTR Trailing Stop Bot Aktif!", 200
+    return "NRTR Güvenli Trailing Stop Bot Aktif!", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
