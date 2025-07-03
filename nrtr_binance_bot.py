@@ -10,7 +10,7 @@ API_SECRET = os.getenv("BINANCE_API_SECRET")
 
 SYMBOL = "AVAXUSDT"
 LEVERAGE = 5
-FIXED_QUANTITY = 10  # 10 adet AVAX
+FIXED_QUANTITY = 5  # 5 adet AVAX
 
 client = Client(API_KEY, API_SECRET)
 client.futures_change_leverage(symbol=SYMBOL, leverage=LEVERAGE)
