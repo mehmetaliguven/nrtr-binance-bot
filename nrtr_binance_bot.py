@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import threading
 from dotenv import load_dotenv
 import os
-from math import floor
 
 # .env dosyasını yükle
 load_dotenv()
@@ -15,7 +14,7 @@ API_SECRET = os.getenv("BINANCE_API_SECRET")
 # Genel ayarlar
 SYMBOL = "AVAXUSDT"
 LEVERAGE = 5
-RISK_PERCENTAGE = 25
+FIXED_QUANTITY = 5  # Her işlemde 5 adet AVAX
 COOLDOWN_MINUTES = 15
 
 last_trade_time = None
@@ -45,26 +44,7 @@ def close_open_position():
         print("SHORT pozisyon kapatıldı")
 
 def calculate_quantity():
-    balances = client.futures_account_balance()
-    usdt_balance = next((float(b['balance']) for b in balances if b['asset'] == 'USDT'), 0)
-
-    if usdt_balance <= 0:
-        print("❌ USDT bakiyesi sıfır. İşlem yapılmadı.")
-        return 0
-
-    mark_price = float(client.futures_mark_price(symbol=SYMBOL)['markPrice'])
-    usdt_amount = usdt_balance * (RISK_PERCENTAGE / 100)
-
-    step_size = 0.01  # AVAX için hassasiyet
-    raw_qty = (usdt_amount * LEVERAGE) / mark_price
-    quantity = floor(raw_qty / step_size) * step_size
-    quantity = round(quantity, 2)
-
-    if quantity <= 0:
-        print(f"❌ Geçersiz pozisyon miktarı hesaplandı: {quantity}")
-        return 0
-
-    return quantity
+    return str(round(FIXED_QUANTITY, 2))  # Binance için string olarak dönüyoruz
 
 def cooldown_expired():
     global last_trade_time
@@ -90,7 +70,7 @@ def webhook():
     close_open_position()
     qty = calculate_quantity()
 
-    if qty <= 0:
+    if float(qty) <= 0:
         return "Miktar geçersiz, işlem yapılmadı.", 400
 
     if signal == "buy":
