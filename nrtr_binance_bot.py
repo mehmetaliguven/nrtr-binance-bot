@@ -47,15 +47,17 @@ def calculate_quantity():
     balances = client.futures_account_balance()
     usdt_balance = next((float(b['balance']) for b in balances if b['asset'] == 'USDT'), 0)
 
-    if usdt_balance == 0:
-        raise ValueError("USDT bakiyesi sıfır. Pozisyon açılamaz.")
+    if usdt_balance <= 0:
+        print("❌ USDT bakiyesi sıfır. İşlem yapılmadı.")
+        return 0
 
     mark_price = float(client.futures_mark_price(symbol=SYMBOL)['markPrice'])
     usdt_amount = usdt_balance * (RISK_PERCENTAGE / 100)
     quantity = round((usdt_amount * LEVERAGE) / mark_price, 2)
 
     if quantity <= 0:
-        raise ValueError(f"Hesaplanan miktar geçersiz: {quantity}")
+        print(f"❌ Geçersiz pozisyon miktarı hesaplandı: {quantity}")
+        return 0
 
     return quantity
 
@@ -82,6 +84,9 @@ def webhook():
 
     close_open_position()
     qty = calculate_quantity()
+
+    if qty <= 0:
+        return "Miktar geçersiz, işlem yapılmadı.", 400
 
     if signal == "buy":
         client.futures_create_order(symbol=SYMBOL, side=SIDE_BUY, type=ORDER_TYPE_MARKET, quantity=qty)
