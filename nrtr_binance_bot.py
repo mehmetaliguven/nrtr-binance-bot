@@ -1,4 +1,3 @@
-
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
@@ -30,11 +29,12 @@ def webhook():
         return "Invalid side", 400
 
     try:
-        # Pozisyon kontrolü
         positions = client.futures_position_information(symbol=SYMBOL)
-        position_amt = float(positions[0]["positionAmt"])
+        if positions:
+            position_amt = float(positions[0]["positionAmt"])
+        else:
+            position_amt = 0
 
-        # Ters pozisyon varsa kapat
         if position_amt != 0:
             logging.info(f"Closing existing position: {position_amt}")
             close_side = SIDE_SELL if position_amt > 0 else SIDE_BUY
@@ -49,7 +49,6 @@ def webhook():
         if qty <= 0:
             return "Quantity calculation error", 400
 
-        # Yeni pozisyon aç
         order_side = SIDE_BUY if side == "buy" else SIDE_SELL
         client.futures_create_order(
             symbol=SYMBOL,
