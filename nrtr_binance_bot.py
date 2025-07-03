@@ -10,7 +10,7 @@ API_SECRET = os.getenv("BINANCE_API_SECRET")
 
 SYMBOL = "AVAXUSDT"
 LEVERAGE = 5
-FIXED_QUANTITY = 10  # 10 adet AVAX olarak güncellendi
+FIXED_QUANTITY = 10  # 10 adet AVAX
 
 client = Client(API_KEY, API_SECRET)
 client.futures_change_leverage(symbol=SYMBOL, leverage=LEVERAGE)
@@ -36,6 +36,10 @@ def close_open_position():
 
 def calculate_quantity():
     return str(round(FIXED_QUANTITY, 2))
+
+@app.route("/")
+def home():
+    return "NRTR Binance Bot çalışıyor.", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
