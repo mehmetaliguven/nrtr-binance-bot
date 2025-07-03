@@ -1,89 +1,62 @@
 from flask import Flask, request
 from binance.client import Client
 from binance.enums import *
-from datetime import datetime, timedelta
-import threading
-from dotenv import load_dotenv
 import os
-
-# .env dosyasını yükle
-load_dotenv()
-API_KEY = os.getenv("BINANCE_API_KEY")
-API_SECRET = os.getenv("BINANCE_API_SECRET")
-
-# Genel ayarlar
-SYMBOL = "AVAXUSDT"
-LEVERAGE = 5
-FIXED_QUANTITY = 5  # Her işlemde 5 adet AVAX
-COOLDOWN_MINUTES = 15
-
-last_trade_time = None
-cooldown_lock = threading.Lock()
-
-# Binance bağlantısı
-client = Client(API_KEY, API_SECRET)
-client.futures_change_leverage(symbol=SYMBOL, leverage=LEVERAGE)
 
 app = Flask(__name__)
 
-def get_position():
-    positions = client.futures_position_information(symbol=SYMBOL)
-    for pos in positions:
-        amt = float(pos['positionAmt'])
-        if amt != 0:
-            return amt
-    return 0
+# Binance API Anahtarları
+API_KEY = os.environ.get('BINANCE_API_KEY')
+API_SECRET = os.environ.get('BINANCE_API_SECRET')
+client = Client(API_KEY, API_SECRET)
 
-def close_open_position():
-    amt = get_position()
-    if amt > 0:
-        client.futures_create_order(symbol=SYMBOL, side=SIDE_SELL, type=ORDER_TYPE_MARKET, quantity=abs(amt))
-        print("LONG pozisyon kapatıldı")
-    elif amt < 0:
-        client.futures_create_order(symbol=SYMBOL, side=SIDE_BUY, type=ORDER_TYPE_MARKET, quantity=abs(amt))
-        print("SHORT pozisyon kapatıldı")
+# İşlem yapılacak sembol ve kaldıraç
+SYMBOL = "AVAXUSDT"
+LEVERAGE = 5
+ORDER_QUANTITY = 5  # Sabit 5 adet işlem
 
-def calculate_quantity():
-    return str(round(FIXED_QUANTITY, 2))  # Binance için string olarak dönüyoruz
+# Kaldıraç ayarı (ilk çalışmada bir kere yapılır)
+try:
+    client.futures_change_leverage(symbol=SYMBOL, leverage=LEVERAGE)
+except Exception as e:
+    print(f"Kaldıraç ayarlanamadı: {e}")
 
-def cooldown_expired():
-    global last_trade_time
-    with cooldown_lock:
-        if last_trade_time is None:
-            return True
-        return datetime.now() - last_trade_time > timedelta(minutes=COOLDOWN_MINUTES)
-
-@app.route("/webhook", methods=["POST"])
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    global last_trade_time
-    data = request.json
-    print(f"Webhook alındı: {data}")
+    data = request.get_json()
+    if not data or 'side' not in data:
+        return "Geçersiz veri", 400
 
-    if not cooldown_expired():
-        print("Cooldown süresi dolmadı, işlem yapılmadı.")
-        return "COOLDOWN", 200
+    side = data['side'].lower()
 
-    signal = data.get("side")
-    if signal not in ["buy", "sell"]:
-        return "Geçersiz sinyal", 400
+    try:
+        if side == 'buy':
+            client.futures_create_order(
+                symbol=SYMBOL,
+                side=SIDE_BUY,
+                type=ORDER_TYPE_MARKET,
+                quantity=ORDER_QUANTITY
+            )
+            print("✅ ALIM emri gönderildi.")
+            return "Buy order executed", 200
 
-    close_open_position()
-    qty = calculate_quantity()
+        elif side == 'sell':
+            client.futures_create_order(
+                symbol=SYMBOL,
+                side=SIDE_SELL,
+                type=ORDER_TYPE_MARKET,
+                quantity=ORDER_QUANTITY
+            )
+            print("✅ SATIM emri gönderildi.")
+            return "Sell order executed", 200
 
-    if float(qty) <= 0:
-        return "Miktar geçersiz, işlem yapılmadı.", 400
+        else:
+            return "Bilinmeyen işlem türü", 400
 
-    if signal == "buy":
-        client.futures_create_order(symbol=SYMBOL, side=SIDE_BUY, type=ORDER_TYPE_MARKET, quantity=qty)
-        print(f"LONG açıldı: {qty} AVAX")
-    elif signal == "sell":
-        client.futures_create_order(symbol=SYMBOL, side=SIDE_SELL, type=ORDER_TYPE_MARKET, quantity=qty)
-        print(f"SHORT açıldı: {qty} AVAX")
+    except Exception as e:
+        print(f"HATA: {e}")
+        return "İşlem gerçekleştirilemedi", 500
 
-    with cooldown_lock:
-        last_trade_time = datetime.now()
-
-    return "OK", 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+@app.route('/')
+def home():
+    return "NRTR Binance Bot Aktif", 200
