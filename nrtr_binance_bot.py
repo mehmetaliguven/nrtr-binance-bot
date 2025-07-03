@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import threading
 from dotenv import load_dotenv
 import os
+from math import floor
 
 # .env dosyasını yükle
 load_dotenv()
@@ -14,7 +15,7 @@ API_SECRET = os.getenv("BINANCE_API_SECRET")
 # Genel ayarlar
 SYMBOL = "AVAXUSDT"
 LEVERAGE = 5
-RISK_PERCENTAGE = 3
+RISK_PERCENTAGE = 25
 COOLDOWN_MINUTES = 15
 
 last_trade_time = None
@@ -53,7 +54,11 @@ def calculate_quantity():
 
     mark_price = float(client.futures_mark_price(symbol=SYMBOL)['markPrice'])
     usdt_amount = usdt_balance * (RISK_PERCENTAGE / 100)
-    quantity = round((usdt_amount * LEVERAGE) / mark_price, 2)
+
+    step_size = 0.01  # AVAX için hassasiyet
+    raw_qty = (usdt_amount * LEVERAGE) / mark_price
+    quantity = floor(raw_qty / step_size) * step_size
+    quantity = round(quantity, 2)
 
     if quantity <= 0:
         print(f"❌ Geçersiz pozisyon miktarı hesaplandı: {quantity}")
