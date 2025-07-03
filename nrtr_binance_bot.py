@@ -44,10 +44,19 @@ def close_open_position():
         print("SHORT pozisyon kapatıldı")
 
 def calculate_quantity():
-    balance = float(client.futures_account_balance()[0]['balance'])
-    usdt_amount = balance * (RISK_PERCENTAGE / 100)
+    balances = client.futures_account_balance()
+    usdt_balance = next((float(b['balance']) for b in balances if b['asset'] == 'USDT'), 0)
+
+    if usdt_balance == 0:
+        raise ValueError("USDT bakiyesi sıfır. Pozisyon açılamaz.")
+
     mark_price = float(client.futures_mark_price(symbol=SYMBOL)['markPrice'])
+    usdt_amount = usdt_balance * (RISK_PERCENTAGE / 100)
     quantity = round((usdt_amount * LEVERAGE) / mark_price, 2)
+
+    if quantity <= 0:
+        raise ValueError(f"Hesaplanan miktar geçersiz: {quantity}")
+
     return quantity
 
 def cooldown_expired():
