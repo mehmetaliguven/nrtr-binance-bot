@@ -5,17 +5,15 @@ import os
 
 app = Flask(__name__)
 
-# Binance API Anahtarları
 API_KEY = os.environ.get('BINANCE_API_KEY')
 API_SECRET = os.environ.get('BINANCE_API_SECRET')
 client = Client(API_KEY, API_SECRET)
 
-# İşlem yapılacak sembol ve kaldıraç
 SYMBOL = "AVAXUSDT"
 LEVERAGE = 5
-ORDER_QUANTITY = 5  # Sabit 5 adet işlem
+ORDER_QUANTITY = 5
 
-# Kaldıraç ayarı (ilk çalışmada bir kere yapılır)
+# Kaldıraç ayarı
 try:
     client.futures_change_leverage(symbol=SYMBOL, leverage=LEVERAGE)
 except Exception as e:
